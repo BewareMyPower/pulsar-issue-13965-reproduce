@@ -27,17 +27,12 @@ public class ProduceAndConsume {
         admin.close();
 
         final PulsarClient client = PulsarClient.builder().serviceUrl("pulsar://localhost:6650").build();
-        final Random random = new Random();
+        final List<Producer<String>> producers = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            final Producer<String> producer = client.newProducer(Schema.STRING)
+            producers.add(client.newProducer(Schema.STRING)
                     .topic(topicNamePrefix + i)
                     .enableBatching(false)
-                    .create();
-            for (int j = 0; j < 1000; j++) {
-                final int key = random.nextInt(100);
-                producer.newMessage(Schema.STRING).value("msg-" + j).key(key + "").sendAsync();
-            }
-            producer.flush();
+                    .create());
         }
 
         final List<Consumer<String>> consumers = new ArrayList<>();
@@ -49,6 +44,16 @@ public class ProduceAndConsume {
                     .subscriptionName("sub")
                     .subscribe());
         }
+
+        final Random random = new Random();
+        for (Producer<String> producer : producers) {
+            for (int i = 0; i < 1000; i++) {
+                final int key = random.nextInt(100);
+                producer.newMessage(Schema.STRING).value("msg-" + i).key(key + "").sendAsync();
+            }
+            producer.flush();
+        }
+
         final List<Integer> numReceivedList = new ArrayList<>();
         int numTotal = 0;
         for (final Consumer<String> consumer : consumers) {
